@@ -31,6 +31,7 @@ namespace CodeChallenge.Repositories
         {
             return await _employeeContext.Employees
                 .Include(e => e.DirectReports)
+                .ThenInclude(e => e.DirectReports)
                 .SingleOrDefaultAsync(e => e.EmployeeId == id);
         }
 
