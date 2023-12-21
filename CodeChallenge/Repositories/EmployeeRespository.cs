@@ -5,6 +5,7 @@ using CodeChallenge.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using CodeChallenge.Data;
+using CodeChallenge.TransferObjects.Compensations;
 
 namespace CodeChallenge.Repositories
 {
@@ -19,28 +20,47 @@ namespace CodeChallenge.Repositories
             _logger = logger;
         }
 
-        public Employee Add(Employee employee)
+        public Employee AddEmployee(Employee employee)
         {
             employee.EmployeeId = Guid.NewGuid().ToString();
             _employeeContext.Employees.Add(employee);
             return employee;
         }
 
-        public async Task<Employee> GetByIdAsync(string id)
+        public async Task<Employee> GetByEmployeeIdAsync(string id)
         {
             return await _employeeContext.Employees
                 .Include(e => e.DirectReports)
                 .SingleOrDefaultAsync(e => e.EmployeeId == id);
         }
 
+
+        public Employee RemoveEmployee(Employee employee)
+        {
+            return _employeeContext.Remove(employee).Entity;
+        }
+
+        public Compensation AddCompensation(Compensation compensation)
+        {
+            compensation.CompensationId = Guid.NewGuid().ToString();
+            _employeeContext.Compensations.Add(compensation);
+
+            return compensation;
+        }
+
+        //Was leaning towards passing an object with query options for further filtering here
+        public async Task<Compensation> GetEmployeeCompensationAsync(String id)
+        {
+            return await _employeeContext.Compensations
+                .Include(c => c.Employee)
+                .Where(c => c.EmployeeId == id)
+                    .OrderByDescending(c => c.EffectiveDate)
+                    .FirstOrDefaultAsync();
+        }
+
         public Task SaveAsync()
         {
             return _employeeContext.SaveChangesAsync();
-        }
-
-        public Employee Remove(Employee employee)
-        {
-            return _employeeContext.Remove(employee).Entity;
         }
     }
 }

@@ -1,8 +1,10 @@
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using CodeChallenge.Models;
+using CodeChallenge.TransferObjects.Compensations;
 using CodeCodeChallenge.Tests.Integration.Extensions;
 using CodeCodeChallenge.Tests.Integration.Helpers;
 
@@ -150,6 +152,61 @@ namespace CodeCodeChallenge.Tests.Integration
             Assert.AreEqual(expectedFirstName, reportingStructure.Employee.FirstName);
             Assert.AreEqual(expectedLastName, reportingStructure.Employee.LastName);
             Assert.AreEqual(expectedReportingStructureCount, reportingStructure.NumberOfReports);
+        }
+
+        [TestMethod]
+        public void GetEmployeeReportingStructure_Returns_NotFound()
+        {
+            // Arrange
+            var employeeId = "16a596ae-edd3-4847-99fe-c4518e82e45t";
+
+            // Execute
+            var getRequestTask = _httpClient.GetAsync($"api/employee/{employeeId}/reportingstructure");
+            var response = getRequestTask.Result;
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [TestMethod]
+        public void CreateEmployeeCompensation_Returns_Ok()
+        {
+            //Arrange
+            var employeeId = "16a596ae-edd3-4847-99fe-c4518e82c86f";
+            var compensation = new CreateCompensationsDto()
+            {
+                Salary = 80000,
+                EffectiveDate = DateTime.Today.AddDays(3)
+            };
+            var requestContent = new JsonSerialization().ToJson(compensation);
+
+            //Execute
+            var postRequestTask = _httpClient.PostAsync($"api/employee/{employeeId}/compensation",
+                new StringContent(requestContent, Encoding.UTF8, "application/json"));
+            var response = postRequestTask.Result;
+
+            //Assert
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [TestMethod]
+        public void CreateEmployeeCompensation_Returns_BadRequest()
+        {
+            //Arrange
+            var employeeId = "16a596ae-edd3-4847-99fe-c4518e82c86f";
+            var compensation = new CreateCompensationsDto()
+            {
+                EffectiveDate = DateTime.Today.AddDays(3)
+            };
+            var requestContent = new JsonSerialization().ToJson(compensation);
+
+            //Execute
+            var postRequestTask = _httpClient.PostAsync($"api/employee/{employeeId}/compensation",
+                new StringContent(requestContent, Encoding.UTF8, "application/json"));
+            var response = postRequestTask.Result;
+
+            //Assert
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
 }

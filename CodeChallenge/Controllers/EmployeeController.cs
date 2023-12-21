@@ -4,7 +4,14 @@ using Microsoft.Extensions.Logging;
 using CodeChallenge.Services;
 using CodeChallenge.Models;
 using System.Threading.Tasks;
+using CodeChallenge.TransferObjects.Compensations;
+using System.Collections.Generic;
+using System.Net;
+using System.ComponentModel.DataAnnotations;
 
+//Normally I would use something like Automapper
+//Also, I would lean towards using a global error handler instead of the try catches I added below
+//I've found the Result pattern to be interesting lately when creating the response type for api's
 namespace CodeChallenge.Controllers
 {
     [ApiController]
@@ -44,7 +51,7 @@ namespace CodeChallenge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> ReplaceEmployee(String id, [FromBody]Employee newEmployee)
+        public async Task<IActionResult> ReplaceEmployee(String id, [FromBody] Employee newEmployee)
         {
             _logger.LogDebug($"Recieved employee update request for '{id}'");
 
@@ -76,7 +83,69 @@ namespace CodeChallenge.Controllers
                 _logger.LogError(ex.Message, $"Error getting reporting structure for employee {id}");
                 return new StatusCodeResult(500);
             }
+        }
 
+        [HttpPost("{id}/compensation")]
+        public async Task<ActionResult> CreateEmployeeCompensation(String id, [FromBody] CreateCompensationsDto createCompensationsDto)
+        {
+            _logger.LogDebug("Received request to create an employee compensation", new[] { createCompensationsDto });
+            if(!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                if (!await _employeeService.EmployeeExist(id))
+                {
+                    return NotFound("The employee does not exist");
+                }
+
+                Compensation compensation = new Compensation()
+                {
+                    Salary = (Decimal)createCompensationsDto.Salary,
+                    EffectiveDate = (DateTime)createCompensationsDto.EffectiveDate,
+                    EmployeeId = id
+                };
+
+                await _employeeService.CreateCompensation(compensation);
+
+                CompensationDto compensationDto = new CompensationDto(compensation);
+
+                return Ok(compensationDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message, $"Error while create compensation for employee {id}");
+                return new StatusCodeResult(500);
+            }
+        }
+
+        [HttpGet("{id}/compensation")]
+        public async Task<ActionResult> GetEmployeeCompensation(String id)
+        {
+            _logger.LogDebug($"Received request to get compensation for employee {id}");
+
+            try
+            {
+                if (!await _employeeService.EmployeeExist(id))
+                {
+                    return NotFound("The employee does not exist");
+                }
+                Compensation compensation = await _employeeService.GetEmployeeCompensation(id);
+
+                if (compensation == null)
+                {
+                    return NotFound("The employee does not have an associated compensation");
+                }
+
+                return Ok(new CompensationDto(compensation));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message, $"Error while retrieving compensation for employee {id}");
+                return new StatusCodeResult(500);
+            }
         }
     }
 }

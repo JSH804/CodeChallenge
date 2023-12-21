@@ -3,6 +3,7 @@ using CodeChallenge.Models;
 using Microsoft.Extensions.Logging;
 using CodeChallenge.Repositories;
 using System.Threading.Tasks;
+using CodeChallenge.TransferObjects.Compensations;
 
 
 namespace CodeChallenge.Services
@@ -18,11 +19,18 @@ namespace CodeChallenge.Services
             _logger = logger;
         }
 
+        public async Task<Boolean> EmployeeExist(String id)
+        {
+            Employee employee = await _employeeRepository.GetByEmployeeIdAsync(id);
+
+            return employee != null;
+        }
+
         public async Task<Employee> CreateAsync(Employee employee)
         {
             if(employee != null)
             {
-                _employeeRepository.Add(employee);
+                _employeeRepository.AddEmployee(employee);
                 await _employeeRepository.SaveAsync();
             }
 
@@ -33,7 +41,7 @@ namespace CodeChallenge.Services
         {
             if(!String.IsNullOrEmpty(id))
             {
-                return await _employeeRepository.GetByIdAsync(id);
+                return await _employeeRepository.GetByEmployeeIdAsync(id);
             }
 
             return null;
@@ -43,17 +51,17 @@ namespace CodeChallenge.Services
         {
             if(originalEmployee != null)
             {
-                _employeeRepository.Remove(originalEmployee);
+                _employeeRepository.RemoveEmployee(originalEmployee);
                 if (newEmployee != null)
                 {
                     // ensure the original has been removed, otherwise EF will complain another entity w/ same id already exists
                     await _employeeRepository.SaveAsync();
 
-                    _employeeRepository.Add(newEmployee);
+                    _employeeRepository.AddEmployee(newEmployee);
                     // overwrite the new id with previous employee id
                     newEmployee.EmployeeId = originalEmployee.EmployeeId;
                 }
-                _employeeRepository.SaveAsync().Wait();
+                await _employeeRepository.SaveAsync();
             }
 
             return newEmployee;
@@ -63,7 +71,7 @@ namespace CodeChallenge.Services
         {
             if (!String.IsNullOrEmpty(id))
             {
-                Employee employee = await _employeeRepository.GetByIdAsync(id);
+                Employee employee = await _employeeRepository.GetByEmployeeIdAsync(id);
 
                 if (employee == null)
                 {
@@ -82,12 +90,12 @@ namespace CodeChallenge.Services
             return null;
         }
 
-        //Recursive method so we can get all levels of DirectReports
+        //Recursive method so we can get all levels of DirectReports dynamically
         private async Task<int> GetDirectReportsCountAsync(Employee employee, int numberOfEmployees)
         {
             foreach (Employee emp in employee.DirectReports)
             {
-                var childEmployee = await _employeeRepository.GetByIdAsync(emp.EmployeeId);
+                var childEmployee = await _employeeRepository.GetByEmployeeIdAsync(emp.EmployeeId);
 
                 if (childEmployee.DirectReports != null && childEmployee.DirectReports.Count != 0)
                 {
@@ -96,6 +104,24 @@ namespace CodeChallenge.Services
             }
 
             return numberOfEmployees;
+        }
+
+        public async Task<Compensation> CreateCompensation(Compensation compensation)
+        {
+            _employeeRepository.AddCompensation(compensation);
+            await _employeeRepository.SaveAsync();
+
+            return compensation;
+        }
+
+        public async Task<Compensation> GetEmployeeCompensation(String id)
+        {
+            if (!String.IsNullOrWhiteSpace(id))
+            {
+                return await _employeeRepository.GetEmployeeCompensationAsync(id);
+            }
+
+            return null;
         }
     }
 }
